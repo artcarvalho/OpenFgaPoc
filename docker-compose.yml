@@ -1,0 +1,94 @@
+version: '3.4'
+
+networks:
+  openfga:
+  db_api:
+
+services:
+  openfgapoc:
+    image: ${DOCKER_REGISTRY-}openfgapoc
+    build:
+      context: .
+      dockerfile: OpenFgaPoc/Dockerfile
+    ports:
+     - "5001:5001"
+     - "5002:5002"
+    networks:
+        - openfga
+        - db_api
+    environment:
+        - ConnectionStrings__DefaultConnection=Host=db_api;Database=userApi;Username=postgres;Password=admin
+
+  db_api:
+   image: postgres:latest
+   container_name: postgres_db_api
+   networks:
+     - db_api
+   ports:
+     - "5433:5432"
+   environment:
+     - POSTGRES_USER=postgres
+     - POSTGRES_PASSWORD=admin
+     - POSTGRES_DB=userApi
+   healthcheck:
+        test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+   
+  migrate_api:
+    image: openfgapoc:latest
+    depends_on:
+      db_api:
+         condition: service_healthy
+    command: dotnet ef database update
+    environment:
+        - ConnectionStrings__DefaultConnection=Host=db_api;Database=userApi;Username=postgres;Password=admin
+
+  db_openfga:
+    image: postgres:latest
+    container_name: postgres_db_open
+    networks:
+     - openfga
+    ports:
+     - "5432:5432"
+    environment:
+     - POSTGRES_USER=postgres
+     - POSTGRES_PASSWORD=admin
+     - POSTGRES_DB=openFga
+    healthcheck:
+        test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+        
+  migrate_openFga:
+    depends_on:
+        db_openfga:
+            condition: service_healthy
+    image: openfga/openfga:latest
+    container_name: migrate
+    command: migrate
+    environment:
+      - OPENFGA_DATASTORE_ENGINE=postgres
+      - OPENFGA_DATASTORE_URI=postgres://postgres:admin@db_openfga:5432/openFga?sslmode=disable
+    networks:
+      - openfga
+
+  openfga:
+    depends_on:
+      migrate_openFga:
+        condition: service_completed_successfully
+    image: openfga/openfga:latest
+    container_name: openfga
+    environment:
+      - OPENFGA_DATASTORE_ENGINE=postgres
+      - OPENFGA_DATASTORE_URI=postgres://postgres:admin@db_openfga:5432/openFga?sslmode=disable
+      - OPENFGA_LOG_FORMAT=json
+    command: run
+    networks:
+      - openfga
+    ports:
+      - "8080:8080"
+
+   
