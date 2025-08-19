@@ -23,7 +23,7 @@ namespace Service.openFga
             };
             this.fgaClient = new OpenFgaClient(configuration);
 
-            var modelJson = "{\"schema_version\":\"1.1\",\"type_definitions\":[{\"type\":\"user\"},{\"type\":\"document\",\"relations\":{\"ro\":{\"this\":{}},\"rw\":{\"this\":{}},\"ow\":{\"this\":{}}},\"metadata\":{\"relations\":{\"ro\":{\"directly_related_user_types\":[{\"type\":\"user\"}]},\"rw\":{\"directly_related_user_types\":[{\"type\":\"user\"}]},\"ow\":{\"directly_related_user_types\":[{\"type\":\"user\"}]}}}}]}";
+            var modelJson = "{\"schema_version\":\"1.1\",\"type_definitions\":[{\"type\":\"papel\",\"relations\":{\"rw\":{\"this\":{}},\"ro\":{\"this\":{}}},\"metadata\":{\"relations\":{\"rw\":{\"directly_related_user_types\":[{\"type\":\"user\"}]},\"ro\":{\"directly_related_user_types\":[{\"type\":\"user\"}]}}}},{\"type\":\"user\",\"relations\":{},\"metadata\":null},{\"type\":\"endpoint\",\"relations\":{\"papel\":{\"this\":{}},\"accessible\":{\"union\":{\"child\":[{\"this\":{}},{\"tupleToUserset\":{\"computedUserset\":{\"relation\":\"rw\"},\"tupleset\":{\"relation\":\"papel\"}}},{\"tupleToUserset\":{\"computedUserset\":{\"relation\":\"ro\"},\"tupleset\":{\"relation\":\"papel\"}}}]}}},\"metadata\":{\"relations\":{\"papel\":{\"directly_related_user_types\":[{\"type\":\"papel\"}]},\"accessible\":{\"directly_related_user_types\":[{\"type\":\"user\"}]}}}}]}";
             var body = JsonSerializer.Deserialize<OpenFga.Sdk.Client.Model.ClientWriteAuthorizationModelRequest>(modelJson);
 
             var response = await fgaClient.WriteAuthorizationModel(body!);
@@ -31,8 +31,8 @@ namespace Service.openFga
 
         }
 
-        public async Task CreateTuple(string name, string obj, string relation) //futuramente, ao criar um usuario no banco de dados, automaticamente vai criar seu tuple. 
-                                                                                //Receber UserModel
+        public async Task CreateTuple(string name, string obj, string relation)
+                                                                                
         {
             if (this.AuthModelId == null)
             {
@@ -48,8 +48,8 @@ namespace Service.openFga
                 Writes = new List<ClientTupleKey>() {
                 new()
                     {
-                        User = $"user:{name}",
-                        Object = $"document:{obj}",
+                        User = name,
+                        Object = obj,
                         Relation = relation
                     }
                 }
@@ -58,7 +58,7 @@ namespace Service.openFga
             var response = await this.fgaClient.Write(body, options);
         }
 
-        public async Task<CheckResponse?> CheckTuple(string name, string obj, string relat) //futuramente receber um UserMOdel com relação Cargo, mas pra isso o authModel precisa de Group
+        public async Task<Boolean> CheckTuple(string name, string obj, string relat)
         {
             var options = new ClientCheckOptions
             {
@@ -69,12 +69,14 @@ namespace Service.openFga
             {
                 User = $"user:{name}",
                 Relation = relat,
-                Object = $"document:{obj}"
+                Object = obj
             };
 
             var response = await fgaClient.Check(body, options);
 
-            return response;
+         
+
+            return response.Allowed == true;
 
         }
     

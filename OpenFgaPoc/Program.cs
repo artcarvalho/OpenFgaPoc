@@ -36,25 +36,51 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 
-app.MapGet("/AuthModelId", () =>
+app.MapGet("/User", (AppDbContext db) =>
 {
-    return openFga_.AuthModelId;
+    return db.Users.ToList();
 });
 
-app.MapPost("/tupleUser", (string name, string obj, string relation) =>
+await openFga_.CreateTuple("papel:pesquisador","endpoint:pesquisador_post","papel");
+app.MapPost("/acesso/pesquisador", (AppDbContext db, string name) =>
 {
-    return openFga_.CreateTuple(name,obj,relation);
+    string user_cargo = db.Users.Where(x => x.Name == name).FirstOrDefault().Cargo;
+    if (openFga_.CheckTuple(name, "endpoint:pesquisador_post", "accessible").Result)
+    {
+        return "Acesso Permitido";
+    }
+    return "Acesso Negado";
 });
 
-app.MapPost("/CheckUser", (string name, string obj, string relation) =>
+await openFga_.CreateTuple("papel:bolsista","endpoint:bolsista_post","papel");
+app.MapPost("/acesso/bolsista", (AppDbContext db, string name) =>
 {
-    return openFga_.CheckTuple(name,obj,relation);
+    string user_cargo = db.Users.Where(x => x.Name == name).FirstOrDefault().Cargo;
+    if (openFga_.CheckTuple(name, "endpoint:bolsista_post", "accessible").Result)
+    {
+        return "Acesso Permitido";
+    }
+    return "Acesso Negado";
+});
+
+await openFga_.CreateTuple("papel:bolsista", "endpoint:acesso_post", "papel");
+await openFga_.CreateTuple("papel:pesquisador", "endpoint:acesso_post", "papel");
+app.MapPost("/acesso", async (AppDbContext db, string name) =>
+{
+    string user_cargo = db.Users.Where(x => x.Name == name).FirstOrDefault().Cargo;
+    if(openFga_.CheckTuple(name, "endpoint:acesso_post", "accessible").Result)
+    {
+        return "Acesso Permitido";
+    }
+    return "Acesso Negado";
 });
 
 app.MapPost("/User/create", async (UserModel user, AppDbContext db) =>
-{
+{   
     db.Users.Add(user);
+    await openFga_.CreateTuple($"user:{user.Name.ToLower()}", $"papel:{user.Cargo.ToLower()}", "rw");
     await db.SaveChangesAsync();
+
     return Results.Ok();
 });
 
