@@ -6,7 +6,10 @@ networks:
 
 services:
   openfgapoc:
-    image: ${DOCKER_REGISTRY-}openfgapoc
+    image: openfgapoc
+    depends_on:
+      db_api:
+        condition: service_healthy
     build:
       context: .
       dockerfile: OpenFgaPoc/Dockerfile
@@ -35,15 +38,6 @@ services:
         interval: 5s
         timeout: 5s
         retries: 5
-   
-  migrate_api:
-    image: openfgapoc:latest
-    depends_on:
-      db_api:
-         condition: service_healthy
-    command: dotnet ef database update
-    environment:
-        - ConnectionStrings__DefaultConnection=Host=db_api;Database=userApi;Username=postgres;Password=admin
 
   db_openfga:
     image: postgres:latest
@@ -51,7 +45,7 @@ services:
     networks:
      - openfga
     ports:
-     - "5432:5432"
+     - "5434:5432"
     environment:
      - POSTGRES_USER=postgres
      - POSTGRES_PASSWORD=admin

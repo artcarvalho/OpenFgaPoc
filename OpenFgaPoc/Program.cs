@@ -4,10 +4,12 @@ using Service.openFga;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.UseUrls("http://+:5002", "https://+:5001");
+
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseNpgsql("Host=db_api;Database=userApi;Username=postgres;Password=admin");
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -18,6 +20,12 @@ await openFga_.Init();
 
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -43,10 +51,11 @@ app.MapPost("/CheckUser", (string name, string obj, string relation) =>
     return openFga_.CheckTuple(name,obj,relation);
 });
 
-app.MapPost("/User/create", (UserModel user, AppDbContext db) =>
+app.MapPost("/User/create", async (UserModel user, AppDbContext db) =>
 {
     db.Users.Add(user);
-    db.SaveChanges();
+    await db.SaveChangesAsync();
+    return Results.Ok();
 });
 
 
